@@ -60,11 +60,11 @@ class ClassAssignment:
             constraint = pulp.lpSum([self.assignment_vars[s, c] for s in supports]) <= supports_per_class
             self.problem += constraint, f"max_supports_in_class_{c}"
 
-    def set_constraints_and_objective(self):
+    def set_score_constraints_and_score_objective(self):
         # 成績の平均値計算
         score_mean = self.student_df['score'].mean()
         
-        # 初期割り当てを設定
+        # 成績の分布を均一化したクラスの初期割り当てを設定
         self.student_df['score_rank'] = self.student_df['score'].rank(ascending=False, method='first')
         class_dic = {i: c for i, c in enumerate(self.classes)}
         self.student_df['init_assigned_class'] = self.student_df['score_rank'].apply(lambda x: class_dic[int(x) % len(self.classes)])
@@ -81,7 +81,7 @@ class ClassAssignment:
             self.problem += class_score_total >= (score_mean - 10) * class_size
             self.problem += class_score_total <= (score_mean + 10) * class_size
 
-            # 目的関数に初期割り当ての一致を追加
+            # 目的関数に初期割り当ての一致を追加（初期割り当てからの一致度を最大化する）
             self.problem += pulp.lpSum([self.assignment_vars[s, c] * init_assignment[s, c]
                                         for s in self.students])
     
