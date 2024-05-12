@@ -70,8 +70,13 @@ class ClassAssignment:
         class_dic = {i: c for i, c in enumerate(self.classes)}
         self.student_df['init_assigned_class'] = self.student_df['score_rank'].apply(lambda x: class_dic[int(x) % len(self.classes)])
     
+        init_assignment = {}
         for c in self.classes:
-            init_assignment = {(s, c): (1 if c == row['init_assigned_class'] else 0) for s, row in self.student_df.iterrows()}
+            for index, row in self.student_df.iterrows():
+                s = row['student_id']
+                init_assignment[(s, c)] = 1 if c == row['init_assigned_class'] else 0
+    
+        for c in self.classes:
             # 生徒のスコアとクラスサイズに関する変数
             class_score_total = pulp.lpSum([self.assignment_vars[s, c] * self.student_df.loc[s-1, 'score'] for s in self.students])
             class_size = pulp.lpSum([self.assignment_vars[s, c] for s in self.students])
@@ -81,7 +86,8 @@ class ClassAssignment:
             self.problem += class_score_total <= (score_mean + 10) * class_size
     
             # 目的関数に初期割り当ての一致を追加
-            self.problem += pulp.lpSum([self.assignment_vars[s, c] * init_assignment[s, c] for s in self.students])
+            self.problem += pulp.lpSum([self.assignment_vars[s, c] * init_assignment[(s, c)]
+                                        for s in self.students])
     
     def solve(self):
         self.problem.writeLP("ClassAssignmentProblem.lp")  # これにより、問題の定義をファイルに書き出す
