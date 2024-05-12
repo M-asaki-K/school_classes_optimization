@@ -60,6 +60,27 @@ class ClassAssignment:
             constraint = pulp.lpSum([self.assignment_vars[s, c] for s in supports]) <= supports_per_class
             self.problem += constraint, f"max_supports_in_class_{c}"
 
+    def set_score_average_constraints(self):
+        score_mean = self.student_df['score'].mean()
+        for c in self.classes:
+            class_score_total = pulp.lpSum([self.assignment_vars[s, c] * self.student_df.loc[s-1, 'score'] for s in self.students])
+            class_size = pulp.lpSum([self.assignment_vars[s, c] for s in self.students])
+            self.problem += class_score_total >= (score_mean - 10) * class_size
+            self.problem += class_score_total <= (score_mean + 10) * class_size
+
+    def set_initial_assignment_objective(self):
+        # 初期割り当てを設定
+        self.student_df['score_rank'] = self.student_df['score'].rank(ascending=False, method='first')
+        class_dic = {i: c for i, c in enumerate(self.classes)}
+        self.student_df['init_assigned_class'] = self.student_df['score_rank'].apply(lambda x: class_dic[int(x) % len(self.classes)])
+        init_assignment = {(s, c): (1 if c == row['init_assigned_class'] else 0)
+                            for s, row in self.student_df.iterrows()}
+        
+        # 目的関数を設定
+        self.problem += pulp.lpSum([self.assignment_vars[s, c] * init_assignment[s, c]
+                                    for s, c in self.student_class_pairs])
+
+    
     def solve(self):
         self.problem.writeLP("ClassAssignmentProblem.lp")  # これにより、問題の定義をファイルに書き出す
         status = self.problem.solve()
